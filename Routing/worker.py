@@ -14,20 +14,33 @@ def main():
     # name of queue can be read from result.method.queue
     result_queue = channel.queue_declare(queue='', exclusive=True)
     
+    hello_queue = channel.queue_declare(queue='', exclusive=True)
+    
     # bind the queue to the exchange: like a subscription to get incoming messages
     # in this case specify a routing_key: get only specific messages
     # we can bind the same queue to multiple exchanges with different routing keys, by calling queue_bind() multiple times
     channel.queue_bind(exchange='direct_logs',
                    queue=result_queue.method.queue,
                    routing_key='urgent')
+    
+    channel.queue_bind(exchange='direct_logs',
+                   queue=hello_queue.method.queue,
+                   routing_key='hello')
 
-    def callback(ch, method, properties, body):
-        print(f" [x] Received {body.decode()}")
+    def callback_urgent(ch, method, properties, body):
+        print(f" [x] Received urgent: {body.decode()}")
         time.sleep(body.count(b'.') )
         print(" [x] Done")
         # ch.basic_ack(delivery_tag = method.delivery_tag)
+        
+    def callback_hello(ch, method, properties, body):
+        print(f" [x] Received hello: {body.decode()}")
+        print(" [x] Sending ack")
+        ch.basic_ack(delivery_tag = method.delivery_tag)
 
-    channel.basic_consume(queue=result_queue.method.queue, on_message_callback=callback, auto_ack=True)
+    channel.basic_consume(queue=result_queue.method.queue, on_message_callback=callback_urgent, auto_ack=True)
+    
+    channel.basic_consume(queue=hello_queue.method.queue, on_message_callback=callback_hello)
 
     print(' [*] Waiting for messages. To exit press CTRL+C')
     channel.start_consuming()
